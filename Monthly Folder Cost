@@ -1,0 +1,25 @@
+#Takes VMWare VM cost detail raw export and makes it a monthly report showing
+#monthly projected cost by group.
+
+import pandas as pd
+
+
+df = pd.read_csv(r"C:\Users\rstuartii\<path_to_export>\GMC-Feb2024-raw.csv")
+
+gmc = df[['Group Name', 'Projected Cost']]
+
+#Drop entries that are not folder names by deleting NaNs
+gmc = gmc[gmc['Group Name'].notna()]
+
+#delete the commas in the ProjCost column
+gmc['Projected Cost'] = gmc['Projected Cost'].str.replace(',', '')
+
+#change column to numeric so it can be sorted
+gmc["Projected Cost"] = pd.to_numeric(gmc["Projected Cost"])
+
+#sort by greatest value of second column
+gmc2 = gmc.sort_values(by=['Projected Cost'], ascending=False)
+
+#now you have the folders sorted by greatest cost first.  Write to a file and modify cost column as currency in Excel
+
+
