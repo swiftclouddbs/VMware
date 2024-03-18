@@ -1,0 +1,64 @@
+#This script queries vcenter for the list of VMs, gathers their disk usage info
+#and calculates the percentage free.  The final part of the script sorts from least to
+#greatest amount of space free
+ 
+import requests
+import json
+import pandas as pd
+import urllib3
+ 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+ 
+#Do not automate the fetching of a session key. 
+ 
+#Get list of all VMs in the vcenter
+ 
+headers = {
+    'vmware-api-session-id': '208abe6534d86e7389c463778cd3a99a',
+}
+ 
+params = {
+    'power_states': 'POWERED_ON',
+}
+ 
+vcenter_vm_list = requests.get('https://cwvc2.ccbc.ccbcmd.edu/api/vcenter/vm', params=params, headers=headers, verify=False)
+ 
+ 
+vvl = vcenter_vm_list.text
+inventory = json.loads(vvl)
+inventory_df = pd.DataFrame(inventory)
+ 
+ 
+#Get disk stats for a specific machine
+# -2- Need to add routine so that it loops through the list of all machines
+ 
+disk_stats = requests.get(
+    'https://cwvc2.ccbc.ccbcmd.edu/api/vcenter/vm/vm-108961/guest/local-filesystem',
+    headers=headers,
+    verify=False,
+)
+ 
+dst = disk_stats.text
+disk_usage = json.loads(dst)
+disk_usage_df = pd.DataFrame(disk_usage)
+ 
+#Remove troublesome characters
+x = disk_usage_df
+x.columns = x.columns.str.replace(':', '')
+x.columns = x.columns.str.replace('\\', '')
+ 
+# -1- DONE: Need to calculate percentage free and report
+ 
+percent_free = x['C'].iloc[1] / x['C'].iloc[2]
+p = percent_free
+u = round(p,3)  #gives us a decimal to 3 places that is still a number, not a string
+q = format(p, ".000%")   #gives us a string we print
+print ("free space on XYZ drive C:\ is " + q + " percent of capacity")
+ 
+ 
+#REPORT PHASE OF PROGRAM
+ 
+#Isolate and format data we want to present
+ 
+#Sort data in the order we desire.
+ 
