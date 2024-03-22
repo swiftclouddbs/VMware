@@ -14,7 +14,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 #Get list of all VMs in the vcenter
 
 headers = {
-    'vmware-api-session-id': '4814fdec7e9d177f54b2367dbc3e754a',
+    'vmware-api-session-id': 'b21d9eab691a063775e05cd1e69b9f2d',
 }
 
 params = {
@@ -23,18 +23,18 @@ params = {
 
 vcenter_vm_list = requests.get('https://cwvc2.ccbc.ccbcmd.edu/api/vcenter/vm', params=params, headers=headers, verify=False)
 
-
 vvl = vcenter_vm_list.text
 inventory = json.loads(vvl)
 inventory_df = pd.DataFrame(inventory)
+#filter on CW machines
+cwindows = inventory_df[inventory_df['name'].str.contains("CW")]
 
 #Isolate machine names and create list
-machs = list(set(inventory_df['vm']))
+machs = list(set(cwindows['vm']))
 
-#Get disk stats for a specific machine
-# -2- Need to add routine so that it loops through the list of all machines
+#contruct the desired commands that gets the desired data and write them to a file
+#!!!!!!!!!!!!!!!!!!This doesn't work because numbers can't be used to set variables.
 
-#contruct the desired commands and write them to a file
 with open(r"C:\Users\rstuartii\OneDrive - The Community College of Baltimore County\Documents\reggie\VMware\api\requests", "a") as f:
 
     for x in machs:
@@ -42,7 +42,9 @@ with open(r"C:\Users\rstuartii\OneDrive - The Community College of Baltimore Cou
         cmd = ""+ x +"data = requests.get('https://cwvc2.ccbc.ccbcmd.edu/api/vcenter/vm/" + x + "/guest/local-filesystem', headers=headers, verify=False,)"
         print(cmd, file=f)
                        
-#
+#Here is a single request that demonstrates the remainder of the script works.
+#!!!!!
+#Current plan is to take the commands in the requests file and substitute them below.
 
 disk_stats = requests.get(
     'https://cwvc2.ccbc.ccbcmd.edu/api/vcenter/vm/vm-108961/guest/local-filesystem',
