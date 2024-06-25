@@ -1,0 +1,152 @@
+#Make some REST calls to build a list, loop through list and do a calculation
+#and email the result
+
+import requests
+import json
+import pandas as pd
+import urllib3
+import os
+from datetime import datetime
+import smtplib
+from email.message import EmailMessage
+
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+#Create session key.
+
+sess = requests.post("https://cwvc2.ccbc.ccbcmd.edu/api/session", auth=('srstuartii', '$w@b1@nDr@g0n'), verify=False)
+key = sess.json()
+
+#Check for file and delete if needed
+
+file_path = ".\disk_stats"
+
+if os.path.exists(file_path):
+      os.remove(file_path)
+      print("File removed.")
+else:
+      print("No file here")
+
+#Get list of all VMs in the vcenter
+      
+headers = {
+    'vmware-api-session-id': key,
+}
+
+params = {
+    'power_states': 'POWERED_ON',
+}
+
+
+vcenter_vm_list = requests.get('https://cwvc2.ccbc.ccbcmd.edu/api/vcenter/vm', params=params, headers=headers, verify=False)
+
+vvl = vcenter_vm_list.text
+inventory = json.loads(vvl)
+inventory_df = pd.DataFrame(inventory)
+#filter on CW machines
+cwindows = inventory_df[inventory_df['name'].str.contains("CW")]
+map = cwindows[['vm', 'name']]
+vm_cname_list = map.values.tolist()
+vm_cname_list = dict(vm_cname_list)
+
+dict_mach_pfree =[]
+
+#Isolate machine names and create list
+machs = list(set(cwindows['vm']))
+
+n = datetime.now()
+
+
+#Get stats from each machine and write to a file.
+
+with open(file_path, "a") as f:
+    print("%s"%n, file=f)    
+
+
+    for x in machs:
+        cmd = requests.get('https://cwvc2.ccbc.ccbcmd.edu/api/vcenter/vm/' + x + '/guest/local-filesystem', headers=headers, verify=False,)
+        cmd
+        dst = cmd.text
+        disk_usage = json.loads(dst)
+        dud = pd.DataFrame(disk_usage)
+        dud.columns = dud.columns.str.replace(':', '')
+        dud.columns = dud.columns.str.replace('\\', '')
+        y = vm_cname_list[x]
+
+
+
+        if 'C' in dud:
+           
+            free = dud.loc['free_space', 'C']
+            cap = dud.loc['capacity', 'C']
+            pfree = free/cap
+
+###Add routine to send an email is machine is one of our special cases.
+        if (pfree < .1) and (y == "CWPYXISBD") :
+            #print ("send" + y + "email", file=f)
+                msg = EmailMessage()
+                        #msg.set_content(fp.read())
+
+                msg['From'] = 'rstuartii@ccbcmd.edu'
+                msg['To'] = 'cmettee@ccbcmd.edu, cherman@ccbcmd.edu, rstuart@ccbcmd.edu'
+                msg['Subject'] = 'Disk @ 90% or more capacity on CWPYXISBD'
+                ##message = file_path
+                ##msg.attach(MIMEText(message))
+
+                mailserver = smtplib.SMTP('mail.ccbcmd.edu',587)
+                # identify ourselves to smtp gmail client
+                mailserver.ehlo()
+                # secure our email with tls encryption
+                mailserver.starttls()
+                # re-identify ourselves as an encrypted connection
+                mailserver.ehlo()
+                mailserver.login('rstuartii@ccbcmd.edu', '$wab1anDrag0n$')
+
+                mailserver.send_message(msg)
+
+                #mailserver.sendmail('rstuartii@ccbcmd.edu','rstuartii@ccbcmd.edu',msg.as_string())
+
+                mailserver.quit()
+
+           
+        else:
+           
+##  Set the decimal value of the max percentage free desired            
+            if pfree < .1 :
+                printpercent = format(pfree, ".000%")
+                mach_pfree = {y, pfree}
+                dict_mach_pfree.append(mach_pfree)
+
+
+                print ("Drive C:\ on " + y + " has " + printpercent + " available", file=f)
+
+#Mail the output from above
+
+
+
+with open('.\disk_stats') as fp:
+    # Create a text/plain message
+    msg = EmailMessage()
+    msg.set_content(fp.read())
+
+msg['From'] = 'rstuartii@ccbcmd.edu'
+msg['To'] = 'rstuartii@ccbcmd.edu'
+msg['Subject'] = 'Disks @ 90% or more capacity'
+##message = file_path
+##msg.attach(MIMEText(message))
+
+mailserver = smtplib.SMTP('mail.ccbcmd.edu',587)
+# identify ourselves to smtp gmail client
+mailserver.ehlo()
+# secure our email with tls encryption
+mailserver.starttls()
+# re-identify ourselves as an encrypted connection
+mailserver.ehlo()
+mailserver.login('rstuartii@ccbcmd.edu', 'password')
+
+mailserver.send_message(msg)
+
+#mailserver.sendmail('rstuartii@ccbcmd.edu','rstuartii@ccbcmd.edu',msg.as_string())
+
+mailserver.quit()
