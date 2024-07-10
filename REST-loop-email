@@ -15,7 +15,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 #Create session key.
 
-sess = requests.post("https://cwvc2.ccbc.ccbcmd.edu/api/session", auth=('srstuartii', '$w@b1@nDr@g0n'), verify=False)
+sess = requests.post("https://cwvc2.ccbc.ccbcmd.edu/api/session", auth=('srstuartii', 'password'), verify=False)
 key = sess.json()
 
 #Check for file and delete if needed
