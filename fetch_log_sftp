@@ -1,0 +1,44 @@
+import paramiko
+import os
+
+#sftp get a file
+
+# Set up the connection parameters
+hostname = 'clsentlog'
+port = 22
+username = 'root'
+password = 'W0rri3dP!ne'
+remote_filepath = '/var/log/messages-20240218'
+local_filepath = 'C:\\Users\\rstuartii\\traffic_log'
+
+# Initialize the SSH client
+client = paramiko.SSHClient()
+client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+# Connect to the SFTP server
+client.connect(hostname, port, username, password)
+
+# Initialize the SFTP client
+sftp = client.open_sftp()
+
+# Download the file
+sftp.get(remote_filepath, local_filepath)
+
+# Close the connections
+sftp.close()
+client.close()
+
+#0 the log file
+# Run a command on the remote server
+ssh = paramiko.SSHClient()
+ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+ssh.connect(hostname='clsentlog', username='root', password='W0rri3dP!ne')
+
+stdin, stdout, stderr = ssh.exec_command('cp /dev/null /var/log/messages-20240218')
+
+# Print the output of the command
+print(stdout.read().decode())
+
+# Close the SSH connection
+ssh.close()
