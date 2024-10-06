@@ -15,7 +15,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 #Create session key.
 
-sess = requests.post("https://cwvc2.ccbc.ccbcmd.edu/api/session", auth=('srstuartii', 'password'), verify=False)
+sess = requests.post("https://cwvc2.bigschool.edu/api/session", auth=('srstuartii', 'password'), verify=False)
 key = sess.json()
 
 #Check for file and delete if needed
@@ -39,7 +39,7 @@ params = {
 }
 
 
-vcenter_vm_list = requests.get('https://cwvc2.ccbc.ccbcmd.edu/api/vcenter/vm', params=params, headers=headers, verify=False)
+vcenter_vm_list = requests.get('https://cwvc2.bigschool.edu/api/vcenter/vm', params=params, headers=headers, verify=False)
 
 vvl = vcenter_vm_list.text
 inventory = json.loads(vvl)
@@ -65,7 +65,7 @@ with open(file_path, "a") as f:
 
 
     for x in machs:
-        cmd = requests.get('https://cwvc2.ccbc.ccbcmd.edu/api/vcenter/vm/' + x + '/guest/local-filesystem', headers=headers, verify=False,)
+        cmd = requests.get('https://cwvc2.bigschool.edu/api/vcenter/vm/' + x + '/guest/local-filesystem', headers=headers, verify=False,)
         cmd
         dst = cmd.text
         disk_usage = json.loads(dst)
@@ -83,29 +83,29 @@ with open(file_path, "a") as f:
             pfree = free/cap
 
 ###Add routine to send an email is machine is one of our special cases.
-        if (pfree < .1) and (y == "CWPYXISBD") :
+        if (pfree < .1) and (y == "CWXYZ123") :
             #print ("send" + y + "email", file=f)
                 msg = EmailMessage()
                         #msg.set_content(fp.read())
 
                 msg['From'] = 'rstuartii@ccbcmd.edu'
-                msg['To'] = 'cmettee@ccbcmd.edu, cherman@ccbcmd.edu, rstuart@ccbcmd.edu'
+                msg['To'] = 'rstuart@bigschool.edu'
                 msg['Subject'] = 'Disk @ 90% or more capacity on CWPYXISBD'
                 ##message = file_path
                 ##msg.attach(MIMEText(message))
 
-                mailserver = smtplib.SMTP('mail.ccbcmd.edu',587)
+                mailserver = smtplib.SMTP('mail.bigschool.edu',587)
                 # identify ourselves to smtp gmail client
                 mailserver.ehlo()
                 # secure our email with tls encryption
                 mailserver.starttls()
                 # re-identify ourselves as an encrypted connection
                 mailserver.ehlo()
-                mailserver.login('rstuartii@ccbcmd.edu', '$wab1anDrag0n$')
+                mailserver.login('rstuartii@bigschool.edu', 'bigschool')
 
                 mailserver.send_message(msg)
 
-                #mailserver.sendmail('rstuartii@ccbcmd.edu','rstuartii@ccbcmd.edu',msg.as_string())
+                #mailserver.sendmail('rstuartii@ccbcmd.edu','rstuartii@bigschool.edu',msg.as_string())
 
                 mailserver.quit()
 
@@ -130,23 +130,23 @@ with open('.\disk_stats') as fp:
     msg = EmailMessage()
     msg.set_content(fp.read())
 
-msg['From'] = 'rstuartii@ccbcmd.edu'
-msg['To'] = 'rstuartii@ccbcmd.edu'
+msg['From'] = 'rstuartii@bigschool.edu'
+msg['To'] = 'rstuartii@bigschool.edu'
 msg['Subject'] = 'Disks @ 90% or more capacity'
 ##message = file_path
 ##msg.attach(MIMEText(message))
 
-mailserver = smtplib.SMTP('mail.ccbcmd.edu',587)
+mailserver = smtplib.SMTP('mail.bigschool.edu',587)
 # identify ourselves to smtp gmail client
 mailserver.ehlo()
 # secure our email with tls encryption
 mailserver.starttls()
 # re-identify ourselves as an encrypted connection
 mailserver.ehlo()
-mailserver.login('rstuartii@ccbcmd.edu', 'password')
+mailserver.login('rstuartii@bigschool.edu', 'password')
 
 mailserver.send_message(msg)
 
-#mailserver.sendmail('rstuartii@ccbcmd.edu','rstuartii@ccbcmd.edu',msg.as_string())
+#mailserver.sendmail('rstuartii@bigschool.edu',msg.as_string())
 
 mailserver.quit()
