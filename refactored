@@ -1,0 +1,130 @@
+#Here is the script refactored by ChatGPT:
+
+import requests
+import json
+import pandas as pd
+import urllib3
+import os
+from datetime import datetime
+import smtplib
+from email.message import EmailMessage
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Constants
+SESSION_URL = "https://cwvc2.ccbc.bigschool.edu/api/session"
+VCENTER_VM_URL = "https://cwvc2.ccbc.bigschool.edu/api/vcenter/vm"
+MAIL_SERVER = 'mail.bigschool.edu'
+EMAIL_FROM = 'reggieii@bigschool.edu'
+EMAIL_TO = ['reggieii@bigschool.edu', 'teamb@bigschool.edu', 'admin@bigschool.edu']
+PASSWORD = 'password'  # Store this securely in practice
+FILE_PATH = "./disk_stats"
+
+def create_session(username, password):
+    """Creates a session and returns the session key."""
+    sess = requests.post(SESSION_URL, auth=(username, password), verify=False)
+    return sess.json()
+
+def remove_file_if_exists(file_path):
+    """Checks if a file exists and removes it if necessary."""
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        print("File removed.")
+    else:
+        print("No file here.")
+
+def get_vm_list(session_key):
+    """Fetches the list of VMs from the vCenter."""
+    headers = {'vmware-api-session-id': session_key}
+    params = {'power_states': 'POWERED_ON'}
+    response = requests.get(VCENTER_VM_URL, params=params, headers=headers, verify=False)
+    return json.loads(response.text)
+
+def filter_windows_machines(inventory_df):
+    """Filters for machines with 'CW' in the name."""
+    cw_machines = inventory_df[inventory_df['name'].str.contains("CW")]
+    vm_cname_list = cw_machines[['vm', 'name']].values.tolist()
+    return dict(vm_cname_list), list(set(cw_machines['vm']))
+
+def fetch_disk_stats(machine, headers):
+    """Fetches disk statistics for a given machine."""
+    response = requests.get(f'{VCENTER_VM_URL}/{machine}/guest/local-filesystem', headers=headers, verify=False)
+    disk_usage = json.loads(response.text)
+    disk_df = pd.DataFrame(disk_usage)
+    disk_df.columns = disk_df.columns.str.replace(':', '').str.replace('\\', '')
+    return disk_df
+
+def calculate_disk_free_space(disk_df):
+    """Calculates percentage of free space on C: drive."""
+    if 'C' in disk_df:
+        free = disk_df.loc['free_space', 'C']
+        cap = disk_df.loc['capacity', 'C']
+        return free / cap
+    return None
+
+def send_email(subject, content, recipients):
+    """Sends an email with the given subject and content."""
+    msg = EmailMessage()
+    msg.set_content(content)
+    msg['From'] = EMAIL_FROM
+    msg['To'] = ', '.join(recipients)
+    msg['Subject'] = subject
+
+    with smtplib.SMTP(MAIL_SERVER, 587) as mailserver:
+        mailserver.ehlo()
+        mailserver.starttls()
+        mailserver.ehlo()
+        mailserver.login(EMAIL_FROM, PASSWORD)
+        mailserver.send_message(msg)
+
+def log_disk_status(machine_name, percentage_free, file_path):
+    """Logs the disk space status to a file."""
+    with open(file_path, "a") as f:
+        print(f"Drive C: on {machine_name} has {percentage_free:.2%} available", file=f)
+
+def process_vm_disk_stats(machines, vm_cname_list, headers):
+    """Processes disk statistics for each VM and handles email notifications."""
+    dict_mach_pfree = []
+    with open(FILE_PATH, "a") as f:
+        print(f"{datetime.now()}", file=f)
+        for machine in machines:
+            disk_df = fetch_disk_stats(machine, headers)
+            percentage_free = calculate_disk_free_space(disk_df)
+            machine_name = vm_cname_list[machine]
+
+            if percentage_free is not None:
+                if percentage_free < 0.1:
+                    log_disk_status(machine_name, percentage_free, FILE_PATH)
+
+                    # Special case: Send email if the machine is CWXYZ123
+                    if machine_name == "CWXYZ123":
+                        send_email(
+                            'Disk @ 90% or more capacity on CWXYZ123',
+                            f'Disk C: on {machine_name} is at 90%+ capacity.',
+                            EMAIL_TO
+                        )
+                    dict_mach_pfree.append((machine_name, percentage_free))
+    return dict_mach_pfree
+
+def main():
+    # Step 1: Create session
+    session_key = create_session('sreggieii', 'password')
+    
+    # Step 2: Check for file and delete if necessary
+    remove_file_if_exists(FILE_PATH)
+    
+    # Step 3: Fetch and filter VM list
+    inventory = get_vm_list(session_key)
+    inventory_df = pd.DataFrame(inventory)
+    vm_cname_list, machines = filter_windows_machines(inventory_df)
+    
+    # Step 4: Process each machine's disk statistics
+    headers = {'vmware-api-session-id': session_key}
+    process_vm_disk_stats(machines, vm_cname_list, headers)
+    
+    # Step 5: Send summary email
+    with open(FILE_PATH) as fp:
+        send_email('Disks @ 90% or more capacity', fp.read(), ['reggieii@bigschool.edu'])
+
+if __name__ == "__main__":
+    main()
